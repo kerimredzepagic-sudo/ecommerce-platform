@@ -1,0 +1,94 @@
+// ShopKit E-commerce ER Diagram
+// Use https://dbdiagram.io to render this as an image
+
+Table User {
+  _id ObjectId [pk]
+  email String [unique, not null]
+  password String
+  firstName String [not null]
+  lastName String [not null]
+  role Enum [note: 'user, admin', default: 'user']
+  phone String
+  address Object
+  isActive Boolean [default: true]
+  isVerified Boolean [default: false]
+  provider Enum [note: 'email, google']
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table Product {
+  _id ObjectId [pk]
+  name String [not null]
+  slug String [unique, not null]
+  description String [not null]
+  shortDescription String
+  price Number [not null]
+  compareAtPrice Number
+  category ObjectId [ref: > Category._id, not null]
+  images Array
+  sku String [unique]
+  stock Number [default: 0]
+  trackInventory Boolean [default: true]
+  isActive Boolean [default: true]
+  isFeatured Boolean [default: false]
+  tags Array
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table Category {
+  _id ObjectId [pk]
+  name String [not null]
+  slug String [unique, not null]
+  description String
+  image String
+  parent ObjectId [ref: > Category._id]
+  level Number [note: '1-3', default: 1]
+  ancestors Array
+  isActive Boolean [default: true]
+  order Number [default: 0]
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table Order {
+  _id ObjectId [pk]
+  orderNumber String [unique, not null]
+  user ObjectId [ref: > User._id]
+  guestEmail String
+  guestName String
+  items Array [note: 'embedded OrderItems']
+  subtotal Number [not null]
+  shipping Number [default: 0]
+  tax Number [default: 0]
+  total Number [not null]
+  status Enum [note: 'pending, confirmed, processing, shipped, delivered, cancelled']
+  paymentStatus Enum [note: 'pending, paid, failed, refunded']
+  paymentMethod String [not null]
+  shippingAddress Object [not null]
+  notes String
+  trackingNumber String
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table PromoCode {
+  _id ObjectId [pk]
+  code String [unique, not null]
+  type Enum [note: 'percentage, fixed, free_shipping']
+  value Number [not null]
+  minOrderAmount Number [default: 0]
+  maxUses Number
+  usedCount Number [default: 0]
+  validFrom DateTime [not null]
+  validUntil DateTime [not null]
+  isActive Boolean [default: true]
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+// Relationships
+Ref: Order.user > User._id        // Many orders belong to one user
+Ref: Product.category > Category._id  // Many products belong to one category
+Ref: Category.parent > Category._id   // Self-referencing (subcategories)
