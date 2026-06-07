@@ -15,7 +15,11 @@ Amila Čaušević, Teaching Assistant
 
 **Date of submission:** May 5, 2026
 
-**GitHub Repository:** https://github.com/YOUR_USERNAME/shopkit-ecommerce
+**GitHub Repository:** https://github.com/kerimredzepagic-sudo/ecommerce-platform
+
+**Live Deployment:**
+- Storefront (frontend): https://maksuz-web-b9f8eac5e948.herokuapp.com/
+- API (backend): https://maksuz-server-68bc30ba8ab2.herokuapp.com/
 
 ---
 
@@ -33,6 +37,8 @@ Amila Čaušević, Teaching Assistant
    2.4 Design Patterns
    2.5 Project Functionalities and Screenshots
    2.6 Tests
+   2.7 Coding Standards
+   2.8 Deployment
 3. Conclusion
 4. Individual Contributions
 
@@ -541,12 +547,12 @@ The application uses 5 main entities/collections:
 
 | Layer | Responsibility | Location |
 |---|---|---|
-| **Model** | Mongoose schemas — data shape, validation, indexes, virtuals, lifecycle hooks. | [`server/src/models/`](../server/src/models/) |
-| **View** | DTO transformation — convert Mongoose documents to stable, public-safe API contracts (hides internal `_id`, `password`, refresh tokens, etc.). | [`server/src/views/`](../server/src/views/) |
-| **Controller** | HTTP layer — parse request, call services, format response. No business logic. | [`server/src/controllers/`](../server/src/controllers/) |
-| **Service** | Business logic and orchestration across multiple models. | [`server/src/services/`](../server/src/services/) |
+| **Model** | Mongoose schemas — data shape, validation, indexes, virtuals, lifecycle hooks. | [`maksuz-server/src/models/`](../maksuz-server/src/models/) |
+| **View** | DTO transformation — convert Mongoose documents to stable, public-safe API contracts (hides internal `_id`, `password`, refresh tokens, etc.). | [`maksuz-server/src/views/`](../maksuz-server/src/views/) |
+| **Controller** | HTTP layer — parse request, call services, format response. No business logic. | [`maksuz-server/src/controllers/`](../maksuz-server/src/controllers/) |
+| **Service** | Business logic and orchestration across multiple models. | [`maksuz-server/src/services/`](../maksuz-server/src/services/) |
 
-**Why MVCS over MVC:** with a plain MVC layout, business rules end up in controllers, which makes them hard to reuse and hard to test without spinning up Express. Pulling rules into a Service layer means a controller is a thin adapter (request in → service call → response out) and the same service can be reused from a CLI script (e.g. [`server/src/scripts/seed.ts`](../server/src/scripts/seed.ts)) or a test (see [`server/tests/services/`](../server/tests/services/)). The View layer was added so route handlers never have to remember which fields are safe to send back — e.g. [`toOrderDTO`](../server/src/views/order.view.ts) strips `refreshToken` from the populated user, and [`getByOrderNumberPublic`](../server/src/services/order.service.ts) (used by the public order-tracking endpoint) returns an even narrower projection.
+**Why MVCS over MVC:** with a plain MVC layout, business rules end up in controllers, which makes them hard to reuse and hard to test without spinning up Express. Pulling rules into a Service layer means a controller is a thin adapter (request in → service call → response out) and the same service can be reused from a CLI script (e.g. [`maksuz-server/src/scripts/seed.ts`](../maksuz-server/src/scripts/seed.ts)) or a test (see [`maksuz-server/tests/services/`](../maksuz-server/tests/services/)). The View layer was added so route handlers never have to remember which fields are safe to send back — e.g. [`toOrderDTO`](../maksuz-server/src/views/order.view.ts) strips `refreshToken` from the populated user, and [`getByOrderNumberPublic`](../maksuz-server/src/services/order.service.ts) (used by the public order-tracking endpoint) returns an even narrower projection.
 
 **Concrete request flow — `POST /api/orders/guest`:**
 
@@ -562,7 +568,7 @@ HTTP request
 HTTP response
 ```
 
-The frontend mirrors this with a feature-folder layout under [`client/src/app/`](../client/src/app/) (App Router pages), domain components in [`client/src/components/{shop,admin,cart,…}`](../client/src/components/), and a React-Query-based data layer in [`client/src/hooks/use*Api.ts`](../client/src/hooks/) — clear separation of pages, presentation, and data fetching.
+The frontend mirrors this with a feature-folder layout under [`maksuz-web/src/app/`](../maksuz-web/src/app/) (App Router pages), domain components in [`maksuz-web/src/components/{shop,admin,cart,…}`](../maksuz-web/src/components/), and a React-Query-based data layer in [`maksuz-web/src/hooks/use*Api.ts`](../maksuz-web/src/hooks/) — clear separation of pages, presentation, and data fetching.
 
 ---
 
@@ -574,16 +580,16 @@ The codebase implements three design patterns that each solve a concrete problem
 
 Each service is exported as a single shared instance rather than a class consumers re-instantiate per request:
 
-- [`server/src/services/product.service.ts:170`](../server/src/services/product.service.ts) — `export const productService = new ProductService();`
-- [`server/src/services/order.service.ts:336`](../server/src/services/order.service.ts) — `export const orderService = new OrderService();`
-- [`server/src/services/auth.service.ts:236`](../server/src/services/auth.service.ts) — `export const authService = new AuthService();`
-- [`server/src/services/category.service.ts:150`](../server/src/services/category.service.ts) — `export const categoryService = new CategoryService();`
+- [`maksuz-server/src/services/product.service.ts:170`](../maksuz-server/src/services/product.service.ts) — `export const productService = new ProductService();`
+- [`maksuz-server/src/services/order.service.ts:336`](../maksuz-server/src/services/order.service.ts) — `export const orderService = new OrderService();`
+- [`maksuz-server/src/services/auth.service.ts:236`](../maksuz-server/src/services/auth.service.ts) — `export const authService = new AuthService();`
+- [`maksuz-server/src/services/category.service.ts:150`](../maksuz-server/src/services/category.service.ts) — `export const categoryService = new CategoryService();`
 
 **Why this pattern:** services are stateless coordinators on top of the Mongoose connection. Creating a new `OrderService` per HTTP request would cost nothing in memory but it would scatter the question "is this the *real* order service or a mock?" across the codebase. By exposing one canonical instance per module, every controller and every test imports the same object — and Node's ES-module cache makes that "Singleton" effectively free. The pattern also gives us a single seam to swap when wiring tests: a `jest.spyOn(orderService, 'create')` reliably intercepts every caller, including the route layer.
 
 #### 2. Strategy — promo-code discount calculation
 
-The promo-code system has three discount families (`percentage`, `fixed`, `free_shipping`) that each compute the order total differently. The Strategy pattern lives in [`OrderService.validateAndApplyPromoCode`](../server/src/services/order.service.ts) ([`server/src/services/order.service.ts:42-62`](../server/src/services/order.service.ts#L42-L62)):
+The promo-code system has three discount families (`percentage`, `fixed`, `free_shipping`) that each compute the order total differently. The Strategy pattern lives in [`OrderService.validateAndApplyPromoCode`](../maksuz-server/src/services/order.service.ts) ([`maksuz-server/src/services/order.service.ts:42-62`](../maksuz-server/src/services/order.service.ts#L42-L62)):
 
 ```ts
 if (promoCode.type === "percentage") {
@@ -594,23 +600,23 @@ if (promoCode.type === "percentage") {
 // 'free_shipping' is handled by zeroing `shipping` later in createOrder
 ```
 
-Followed by ([`server/src/services/order.service.ts:99-100`](../server/src/services/order.service.ts#L99-L100)):
+Followed by ([`maksuz-server/src/services/order.service.ts:99-100`](../maksuz-server/src/services/order.service.ts#L99-L100)):
 
 ```ts
 let shipping = subtotal >= 50 ? 0 : 5;
 if (appliedPromo?.type === "free_shipping") shipping = 0;
 ```
 
-**Why this pattern:** the alternative — a single nested `if` chain inside `create` — would bake the discount math into the order-creation flow and make it hard to add a new discount type (e.g. "buy one get one free") without touching unrelated code. The current design isolates each discount calculation behind a `type` discriminator. Adding a new strategy means one new branch and one new case in the validator, with no edits to the order pipeline. The pattern is also exercised by tests in [`server/tests/services/order.service.test.ts`](../server/tests/services/order.service.test.ts) ("applies a percentage discount", "applies a free-shipping promo by zeroing shipping cost", "ignores an expired promo code").
+**Why this pattern:** the alternative — a single nested `if` chain inside `create` — would bake the discount math into the order-creation flow and make it hard to add a new discount type (e.g. "buy one get one free") without touching unrelated code. The current design isolates each discount calculation behind a `type` discriminator. Adding a new strategy means one new branch and one new case in the validator, with no edits to the order pipeline. The pattern is also exercised by tests in [`maksuz-server/tests/services/order.service.test.ts`](../maksuz-server/tests/services/order.service.test.ts) ("applies a percentage discount", "applies a free-shipping promo by zeroing the shipping cost", "ignores an expired promo code").
 
 #### 3. Adapter (DTO) — view layer
 
 Mongoose documents carry internal Mongo state (`_id`, `__v`, refresh tokens, password hashes, hydration helpers) that should never leak across the API boundary. The view layer adapts each model to a stable wire format:
 
-- [`server/src/views/product.view.ts:63`](../server/src/views/product.view.ts#L63) — `toProductDTO` produces a `ProductDTO` with `id` (string), flattened `category`, derived `inStock` / `isOnSale` / `discount` fields, and `attributes` as a plain object (not a Mongoose `Map`).
-- [`server/src/views/product.view.ts:121`](../server/src/views/product.view.ts#L121) — `toProductListDTO` returns a slimmer shape (no `description`, no `variants`) optimized for listing endpoints to keep payloads small.
-- [`server/src/views/order.view.ts:57`](../server/src/views/order.view.ts#L57) — `toOrderDTO` adapts the populated user (drops `password`, `refreshToken`) and computes `itemCount`.
-- [`server/src/services/order.service.ts:317`](../server/src/services/order.service.ts#L317) — `getByOrderNumberPublic` is an even narrower adapter used for the unauthenticated order-tracking page: it returns only the order number, status, items, totals, and the buyer's city/country — never the street, phone, or email.
+- [`maksuz-server/src/views/product.view.ts:63`](../maksuz-server/src/views/product.view.ts#L63) — `toProductDTO` produces a `ProductDTO` with `id` (string), flattened `category`, derived `inStock` / `isOnSale` / `discount` fields, and `attributes` as a plain object (not a Mongoose `Map`).
+- [`maksuz-server/src/views/product.view.ts:121`](../maksuz-server/src/views/product.view.ts#L121) — `toProductListDTO` returns a slimmer shape (no `description`, no `variants`) optimized for listing endpoints to keep payloads small.
+- [`maksuz-server/src/views/order.view.ts:57`](../maksuz-server/src/views/order.view.ts#L57) — `toOrderDTO` adapts the populated user (drops `password`, `refreshToken`) and computes `itemCount`.
+- [`maksuz-server/src/services/order.service.ts:317`](../maksuz-server/src/services/order.service.ts#L317) — `getByOrderNumberPublic` is an even narrower adapter used for the unauthenticated order-tracking page: it returns only the order number, status, items, totals, and the buyer's city/country — never the street, phone, or email.
 
 **Why this pattern:** decoupling the wire format from the database schema means we can change Mongoose internals (e.g. switch `attributes` from `Map` to a sub-document) without breaking the frontend, and we can confidently expose `getByOrderNumberPublic` to anonymous traffic because the adapter shape is the security boundary, not the model.
 
@@ -620,53 +626,78 @@ Mongoose documents carry internal Mongo state (`_id`, `__v`, refresh tokens, pas
 
 #### Implemented features
 
-**Customer storefront** ([`client/src/app/shop/`](../client/src/app/shop/))
-- Product catalog with search, category filter, price range, in-stock toggle, sort (price/name/date) — [`shop/products/ShopProductsClient.tsx`](../client/src/app/shop/products/ShopProductsClient.tsx)
-- Product detail with image gallery, variants, stock indicator — [`shop/product/[id]/ProductPageClient.tsx`](../client/src/app/shop/product/%5Bid%5D/ProductPageClient.tsx)
-- Cart drawer with quantity adjustment and localStorage persistence — [`components/cart/CartDrawer.tsx`](../client/src/components/cart/CartDrawer.tsx), state in [`contexts/CartContext.tsx`](../client/src/contexts/CartContext.tsx)
-- Checkout for registered + guest users — [`shop/checkout/CheckoutPageClient.tsx`](../client/src/app/shop/checkout/CheckoutPageClient.tsx)
-- Public order tracking by order number — [`shop/order/track/OrderTrackClient.tsx`](../client/src/app/shop/order/track/OrderTrackClient.tsx)
-- Order confirmation page — [`shop/order/confirmed/OrderConfirmedClient.tsx`](../client/src/app/shop/order/confirmed/OrderConfirmedClient.tsx)
+**Customer storefront** ([`maksuz-web/src/app/shop/`](../maksuz-web/src/app/shop/))
+- Product catalog with search, category filter, price range, in-stock toggle, sort (price/name/date) — [`shop/products/ShopProductsClient.tsx`](../maksuz-web/src/app/shop/products/ShopProductsClient.tsx)
+- Product detail with image gallery, variants, stock indicator — [`shop/product/[id]/ProductPageClient.tsx`](../maksuz-web/src/app/shop/product/%5Bid%5D/ProductPageClient.tsx)
+- Cart drawer with quantity adjustment and localStorage persistence — [`components/cart/CartDrawer.tsx`](../maksuz-web/src/components/cart/CartDrawer.tsx), state in [`contexts/CartContext.tsx`](../maksuz-web/src/contexts/CartContext.tsx)
+- Checkout for registered + guest users — [`shop/checkout/CheckoutPageClient.tsx`](../maksuz-web/src/app/shop/checkout/CheckoutPageClient.tsx)
+- Public order tracking by order number — [`shop/order/track/OrderTrackClient.tsx`](../maksuz-web/src/app/shop/order/track/OrderTrackClient.tsx)
+- Order confirmation page — [`shop/order/confirmed/OrderConfirmedClient.tsx`](../maksuz-web/src/app/shop/order/confirmed/OrderConfirmedClient.tsx)
 
-**Authentication** ([`client/src/app/{login,register}/`](../client/src/app/login/))
-- Email/password register + verify, login with JWT (access + refresh), Google OAuth — [`services/auth.service.ts`](../server/src/services/auth.service.ts)
-- Auth context provides user state across the app — [`contexts/AuthContext.tsx`](../client/src/contexts/AuthContext.tsx)
+**Authentication** ([`maksuz-web/src/app/{login,register}/`](../maksuz-web/src/app/login/))
+- Email/password register + verify, login with JWT (access + refresh), Google OAuth — [`services/auth.service.ts`](../maksuz-server/src/services/auth.service.ts)
+- Auth context provides user state across the app — [`contexts/AuthContext.tsx`](../maksuz-web/src/contexts/AuthContext.tsx)
 
-**Admin panel** ([`client/src/app/admin/`](../client/src/app/admin/))
-- Dashboard with KPI cards (today / this month / all-time orders + revenue, by-status breakdown) — [`admin/page.tsx`](../client/src/app/admin/page.tsx), [`components/admin/OrderKPICards.tsx`](../client/src/components/admin/OrderKPICards.tsx)
-- Product CRUD with image upload, variants, attributes, rich-text description — [`admin/products/`](../client/src/app/admin/products/), [`components/admin/products/`](../client/src/components/admin/products/)
-- Category management with hierarchical tree (3 levels) — [`admin/categories/page.tsx`](../client/src/app/admin/categories/page.tsx)
-- Order management with status updates, cancellation, customer browser — [`admin/orders/`](../client/src/app/admin/orders/)
+**Admin panel** ([`maksuz-web/src/app/admin/`](../maksuz-web/src/app/admin/))
+- Dashboard with KPI cards (today / this month / all-time orders + revenue, by-status breakdown) — [`admin/page.tsx`](../maksuz-web/src/app/admin/page.tsx), [`components/admin/OrderKPICards.tsx`](../maksuz-web/src/components/admin/OrderKPICards.tsx)
+- Product CRUD with image upload, variants, attributes, rich-text description — [`admin/products/`](../maksuz-web/src/app/admin/products/), [`components/admin/products/`](../maksuz-web/src/components/admin/products/)
+- Category management with hierarchical tree (3 levels) — [`admin/categories/page.tsx`](../maksuz-web/src/app/admin/categories/page.tsx)
+- Order management with status updates, cancellation, customer browser — [`admin/orders/`](../maksuz-web/src/app/admin/orders/)
 
 #### Responsive design
 
 The application is responsive from 320 px to 1920 px using Tailwind breakpoints (`sm:` 640, `md:` 768, `lg:` 1024, `xl:` 1280). Notable adaptations:
 
-- Mobile-first nav with a collapsible drawer ([`components/shared/ShopNavbar.tsx`](../client/src/components/shared/ShopNavbar.tsx))
-- Filter sidebar collapses into a bottom-sheet drawer below `md` ([`components/shop/MobileFilterDrawer.tsx`](../client/src/components/shop/MobileFilterDrawer.tsx))
-- Product grid switches from 1 → 2 → 3 → 4 columns by breakpoint ([`components/shop/AnimatedProductGrid.tsx`](../client/src/components/shop/AnimatedProductGrid.tsx))
-- Admin sidebar collapses to icons-only on `md`, slides off-canvas on mobile ([`components/admin/AdminSidebar.tsx`](../client/src/components/admin/AdminSidebar.tsx), [`hooks/use-mobile.tsx`](../client/src/hooks/use-mobile.tsx))
+- Mobile-first nav with a collapsible drawer ([`components/shared/ShopNavbar.tsx`](../maksuz-web/src/components/shared/ShopNavbar.tsx))
+- Filter sidebar collapses into a bottom-sheet drawer below `md` ([`components/shop/MobileFilterDrawer.tsx`](../maksuz-web/src/components/shop/MobileFilterDrawer.tsx))
+- Product grid switches from 1 → 2 → 3 → 4 columns by breakpoint ([`components/shop/AnimatedProductGrid.tsx`](../maksuz-web/src/components/shop/AnimatedProductGrid.tsx))
+- Admin sidebar collapses to icons-only on `md`, slides off-canvas on mobile ([`components/admin/AdminSidebar.tsx`](../maksuz-web/src/components/admin/AdminSidebar.tsx), [`hooks/use-mobile.tsx`](../maksuz-web/src/hooks/use-mobile.tsx))
 
 #### Screenshots
 
-See [`docs/screenshots/`](./screenshots/) for captures of every main screen across desktop and mobile breakpoints.
+Screenshots of the main screens are collected in [`docs/screenshots/`](./screenshots/). The live application can also be viewed directly at the storefront URL (https://maksuz-web-b9f8eac5e948.herokuapp.com/) across desktop and mobile breakpoints.
 
 ---
 
 ### 2.6 Tests
 
-Tests live in [`server/tests/`](../server/tests/) and use **Jest + ts-jest** as the runner. Each test spins up an in-memory MongoDB via `mongodb-memory-server`, so every test runs against a real Mongoose driver and real BSON behaviour (no mocks at the data-access boundary — mocks have a history of letting migration bugs slip through to production).
+Tests live in [`maksuz-server/tests/`](../maksuz-server/tests/) and use **Jest + ts-jest** as the runner. The two service suites each spin up an in-memory MongoDB via `mongodb-memory-server`, so they run against a real Mongoose driver and real BSON behaviour (model validation, hooks and indexes are all exercised for real, not mocked). The pure-function suites need no database.
 
-Run with `npm test` from the `server/` directory.
+Run with `npm test` (or `yarn test`) from the `maksuz-server/` directory.
 
 | File | What it covers | # tests |
 |---|---|---|
-| [`tests/utils/slugify.test.ts`](../server/tests/utils/slugify.test.ts) | Pure-function slug generation: lowercase, hyphenation, special-char stripping, repeated-hyphen collapse, base-36 unique-suffix generation. | 5 |
-| [`tests/services/product.service.test.ts`](../server/tests/services/product.service.test.ts) | Product creation, slug-collision uniqueness (timestamp suffix), and the `getAll` query layer (price-range + in-stock filter). | 3 |
-| [`tests/services/order.service.test.ts`](../server/tests/services/order.service.test.ts) | Order creation decrements stock; insufficient-stock is rejected; free shipping above 50 KM; the three promo-code strategies (`percentage`, `free_shipping`, expired-ignored); `cancelOrder` restores stock and refuses to cancel shipped orders. | 8 |
-| [`tests/services/auth.service.test.ts`](../server/tests/services/auth.service.test.ts) | Register hashes the password and marks unverified; duplicate-email rejected; unverified login blocked; verified login issues access + refresh tokens; wrong-password rejected. | 5 |
+| [`tests/utils/slugify.test.ts`](../maksuz-server/tests/utils/slugify.test.ts) | Pure-function slug generation: lowercase + hyphenation, special-char stripping, repeated-hyphen collapse, leading/trailing-hyphen trim, and the base-36 unique-suffix generator. | 5 |
+| [`tests/utils/password.test.ts`](../maksuz-server/tests/utils/password.test.ts) | bcrypt password hashing: a hash is not the plaintext, `comparePassword` accepts the correct password and rejects a wrong one. | 3 |
+| [`tests/services/product.service.test.ts`](../maksuz-server/tests/services/product.service.test.ts) | Product creation slug generation, slug-collision uniqueness (base-36 suffix), and the `getAll` query layer (price-range filter + in-stock filter). | 4 |
+| [`tests/services/order.service.test.ts`](../maksuz-server/tests/services/order.service.test.ts) | Guest-order creation decrements stock; insufficient-stock is rejected; and the promo-code **Strategy** pattern — percentage discount, free-shipping (zeroes shipping), and an expired code being ignored. | 5 |
 
-**Total: 21 tests, 4 suites.** Latest run: all passing in ~5 seconds.
+**Total: 17 tests, 4 suites.** Latest run: all passing in ~10 seconds.
+
+---
+
+### 2.7 Coding Standards
+
+The codebase follows a consistent set of conventions enforced by tooling and applied by hand:
+
+- **Language & types:** the entire stack is **TypeScript** with `strict` mode on (see [`maksuz-server/tsconfig.json`](../maksuz-server/tsconfig.json) and [`maksuz-web/tsconfig.json`](../maksuz-web/tsconfig.json)). No implicit `any`; public service methods declare explicit return types.
+- **Linting:** ESLint on both projects — `eslint src/**/*.ts` on the backend and `eslint-config-next` on the frontend. The frontend also runs **Prettier** (`yarn format` / `format:fix`) and a **Husky** pre-commit hook so formatting is checked before every commit.
+- **Naming:** `camelCase` for variables and functions, `PascalCase` for classes, types and React components, `SCREAMING_SNAKE_CASE` for constants and environment variables. Files are named by role: `*.model.ts`, `*.service.ts`, `*.controller.ts`, `*.validator.ts`, `*.view.ts`, `*.routes.ts`.
+- **Folder structure mirrors the architecture:** every backend layer lives in its own directory (`models/`, `services/`, `controllers/`, `validators/`, `views/`, `routes/`), each with a barrel `index.ts` so imports stay flat. The frontend uses Next.js App-Router feature folders, domain components under `components/{shop,admin,cart,…}`, and a `hooks/use*Api.ts` data layer.
+- **Validation at the boundary:** every write endpoint validates its input with a **Zod** schema in `validators/` before the controller runs, so invalid data never reaches a service.
+- **Consistent API shape:** all responses go through a single envelope helper ([`maksuz-server/src/utils/apiResponse.ts`](../maksuz-server/src/utils/apiResponse.ts)) and errors flow through one Express error-handling middleware.
+- **Secrets:** never committed — all configuration is read from environment variables (`.env` locally, Heroku config vars in production), and `.env` / service-account keys are gitignored.
+
+### 2.8 Deployment
+
+The application is **deployed and publicly available** on **Heroku** (EU region, `heroku-24` stack), with the frontend and backend running as two separate apps:
+
+| Component | Heroku app | Public URL |
+|---|---|---|
+| Storefront (Next.js) | `maksuz-web` | https://maksuz-web-b9f8eac5e948.herokuapp.com/ |
+| API (Express + MongoDB) | `maksuz-server` | https://maksuz-server-68bc30ba8ab2.herokuapp.com/ |
+
+**How it is deployed:** each app is built from its subfolder of this repository. The backend declares a `Procfile` (`web: node dist/app.js`), runs `tsc` as its `heroku-postbuild`, and serves on the Heroku-provided `$PORT`. The frontend declares `web: next start -p $PORT` and is built with `next build`. Configuration (MongoDB Atlas connection, JWT secrets, Google OAuth credentials, SMTP, and Google Cloud Storage credentials as a base64-encoded env var) is supplied through Heroku **config vars** rather than committed files. The database is hosted on **MongoDB Atlas** and product images on **Google Cloud Storage**.
 
 ---
 
@@ -688,18 +719,18 @@ If we had more time we would: (1) wire a Selenium suite to cover the checkout go
 
 **Student 1 (50%) — Backend & Architecture**
 - Designed the MVCS layered architecture and the View/DTO security boundary
-- Implemented all Mongoose models, services, controllers, validators ([`server/src/`](../server/src/))
-- Built the JWT auth flow (access + refresh, email verification, Google OAuth) — [`server/src/services/auth.service.ts`](../server/src/services/auth.service.ts)
+- Implemented all Mongoose models, services, controllers, validators ([`maksuz-server/src/`](../maksuz-server/src/))
+- Built the JWT auth flow (access + refresh, email verification, Google OAuth) — [`maksuz-server/src/services/auth.service.ts`](../maksuz-server/src/services/auth.service.ts)
 - Designed the ER schema ([`docs/ER-diagram.dbml`](./ER-diagram.dbml)) and the order-pipeline business logic (stock management, promo Strategy pattern, COD, tax calculation)
-- Wrote the Jest + mongodb-memory-server test suite ([`server/tests/`](../server/tests/))
+- Wrote the Jest + mongodb-memory-server test suite ([`maksuz-server/tests/`](../maksuz-server/tests/))
 - Wrote the Product Roadmap and Release Plan
 - Authored sections 1.2, 2.1, 2.2, 2.3, 2.4, 2.6 of this document
 
 **Student 2 (50%) — Frontend & UX**
-- Designed and implemented the Next.js App Router storefront ([`client/src/app/shop/`](../client/src/app/shop/))
-- Built the admin panel: dashboard, products CRUD with image upload + variants, categories tree, orders with status updates ([`client/src/app/admin/`](../client/src/app/admin/))
-- Implemented the cart with localStorage persistence and the checkout flow (guest + registered) — [`client/src/contexts/CartContext.tsx`](../client/src/contexts/CartContext.tsx), [`client/src/app/shop/checkout/`](../client/src/app/shop/checkout/)
-- Built the React Query data layer ([`client/src/hooks/use*Api.ts`](../client/src/hooks/)) and the shared Shadcn/Tailwind component library
+- Designed and implemented the Next.js App Router storefront ([`maksuz-web/src/app/shop/`](../maksuz-web/src/app/shop/))
+- Built the admin panel: dashboard, products CRUD with image upload + variants, categories tree, orders with status updates ([`maksuz-web/src/app/admin/`](../maksuz-web/src/app/admin/))
+- Implemented the cart with localStorage persistence and the checkout flow (guest + registered) — [`maksuz-web/src/contexts/CartContext.tsx`](../maksuz-web/src/contexts/CartContext.tsx), [`maksuz-web/src/app/shop/checkout/`](../maksuz-web/src/app/shop/checkout/)
+- Built the React Query data layer ([`maksuz-web/src/hooks/use*Api.ts`](../maksuz-web/src/hooks/)) and the shared Shadcn/Tailwind component library
 - Made the entire UI responsive (320 px → 1920 px) including the mobile filter drawer and collapsible admin sidebar
 - Drew all UML diagrams (4 activity, 4 sequence with fragment operators, 1 class diagram with aggregation + composition) — section 1.4
 - Wrote the 28 user stories with acceptance criteria — section 1.3
