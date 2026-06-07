@@ -21,6 +21,13 @@ Amila Čaušević, Teaching Assistant
 - Storefront (frontend): https://maksuz-web-b9f8eac5e948.herokuapp.com/
 - API (backend): https://maksuz-server-68bc30ba8ab2.herokuapp.com/
 
+**Demo Login Credentials (Admin panel):**
+- URL: https://maksuz-web-b9f8eac5e948.herokuapp.com/login
+- Email: `kerimredzepagic96@gmail.com`
+- Password: `Admin123!`
+
+After logging in, the admin dashboard is available at `/admin`.
+
 ---
 
 ## TABLE OF CONTENTS
@@ -655,7 +662,29 @@ The application is responsive from 320 px to 1920 px using Tailwind breakpoints 
 
 #### Screenshots
 
-Screenshots of the main screens are collected in [`docs/screenshots/`](./screenshots/). The live application can also be viewed directly at the storefront URL (https://maksuz-web-b9f8eac5e948.herokuapp.com/) across desktop and mobile breakpoints.
+Screenshots of the main screens are collected in [`docs/screenshots/`](./screenshots/) (captured from the live deployment). The storefront pages are shown at both desktop and mobile breakpoints to demonstrate the responsive design; the admin panel is shown at desktop size.
+
+**Storefront (desktop + mobile)**
+
+| Screen | Desktop | Mobile |
+|---|---|---|
+| Home | [home-desktop.png](./screenshots/home-desktop.png) | [home-mobile.png](./screenshots/home-mobile.png) |
+| Shop landing | [shop-desktop.png](./screenshots/shop-desktop.png) | [shop-mobile.png](./screenshots/shop-mobile.png) |
+| Product listing | [shop-products-desktop.png](./screenshots/shop-products-desktop.png) | [shop-products-mobile.png](./screenshots/shop-products-mobile.png) |
+| Order tracking | [order-track-desktop.png](./screenshots/order-track-desktop.png) | [order-track-mobile.png](./screenshots/order-track-mobile.png) |
+| Login | [login-desktop.png](./screenshots/login-desktop.png) | [login-mobile.png](./screenshots/login-mobile.png) |
+| Register | [register-desktop.png](./screenshots/register-desktop.png) | [register-mobile.png](./screenshots/register-mobile.png) |
+
+**Admin panel (desktop)**
+
+| Screen | Screenshot |
+|---|---|
+| Dashboard (KPIs, recent orders) | [admin-dashboard-desktop.png](./screenshots/admin-dashboard-desktop.png) |
+| Products | [admin-products-desktop.png](./screenshots/admin-products-desktop.png) |
+| Orders | [admin-orders-desktop.png](./screenshots/admin-orders-desktop.png) |
+| Categories | [admin-categories-desktop.png](./screenshots/admin-categories-desktop.png) |
+
+The live application can also be viewed directly at https://maksuz-web-b9f8eac5e948.herokuapp.com/ (admin login credentials are listed at the top of this document).
 
 ---
 
@@ -696,6 +725,8 @@ The application is **deployed and publicly available** on **Heroku** (EU region,
 |---|---|---|
 | Storefront (Next.js) | `maksuz-web` | https://maksuz-web-b9f8eac5e948.herokuapp.com/ |
 | API (Express + MongoDB) | `maksuz-server` | https://maksuz-server-68bc30ba8ab2.herokuapp.com/ |
+
+**Demo admin login:** `kerimredzepagic96@gmail.com` / `Admin123!` at https://maksuz-web-b9f8eac5e948.herokuapp.com/login (admin dashboard at `/admin`).
 
 **How it is deployed:** each app is built from its subfolder of this repository. The backend declares a `Procfile` (`web: node dist/app.js`), runs `tsc` as its `heroku-postbuild`, and serves on the Heroku-provided `$PORT`. The frontend declares `web: next start -p $PORT` and is built with `next build`. Configuration (MongoDB Atlas connection, JWT secrets, Google OAuth credentials, SMTP, and Google Cloud Storage credentials as a base64-encoded env var) is supplied through Heroku **config vars** rather than committed files. The database is hosted on **MongoDB Atlas** and product images on **Google Cloud Storage**.
 
