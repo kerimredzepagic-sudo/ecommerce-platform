@@ -16,8 +16,9 @@ export function errorHandler(
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
 
-  // Log error in development
-  if (env.isDevelopment) {
+  // Log unexpected (5xx) errors everywhere so they show up in production logs too;
+  // in development, log all errors with full stack for easier debugging.
+  if (env.isDevelopment || statusCode >= 500) {
     console.error('Error:', {
       message: err.message,
       stack: err.stack,

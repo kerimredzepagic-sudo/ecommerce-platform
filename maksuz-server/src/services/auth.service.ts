@@ -3,6 +3,7 @@ import { User, IUser } from '../models';
 import { EmailChangeRequest } from '../models/emailChangeRequest.model';
 import { hashPassword, comparePassword, generateTokens, verifyRefreshToken, TokenPayload } from '../utils';
 import { emailService } from './email.service';
+import { ApiError } from '../middleware/error.middleware';
 
 export interface RegisterInput {
   email: string;
@@ -82,21 +83,21 @@ class AuthService {
   async login(input: LoginInput): Promise<AuthResult> {
     const user = await User.findOne({ email: input.email.toLowerCase() });
     if (!user) {
-      throw new Error('Pogrešan email ili lozinka');
+      throw new ApiError('Pogrešan email ili lozinka', 401);
     }
 
     if (!user.isActive) {
-      throw new Error('Račun je deaktiviran');
+      throw new ApiError('Račun je deaktiviran', 403);
     }
 
     // Check if user has a password (Google users might not have one)
     if (!user.password) {
-      throw new Error('Koristite Google za prijavu na ovaj račun');
+      throw new ApiError('Koristite Google za prijavu na ovaj račun', 400);
     }
 
     const isPasswordValid = await comparePassword(input.password, user.password);
     if (!isPasswordValid) {
-      throw new Error('Pogrešan email ili lozinka');
+      throw new ApiError('Pogrešan email ili lozinka', 401);
     }
 
     // Check if account is verified (admins are auto-verified)
