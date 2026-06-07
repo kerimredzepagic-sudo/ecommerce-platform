@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Secrets / service-account keys (use GCS_CREDENTIALS_BASE64 env var instead)
+*-*.json
+gcs-cors.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!nodemon.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
